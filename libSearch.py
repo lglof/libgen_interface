@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import requests
+from tqdm import tqdm
 from libgen_api import LibgenSearch
 from PyInquirer import prompt, print_json, Separator
 
@@ -38,10 +39,10 @@ else:
 choices = []
 
 for i in range(len(titles)):
-    index = "{:<2}".format(i)
-    author = "{:<20}".format(titles[i]["Author"])
-    title = "{:<30}".format(titles[i]["Title"])
-    out = f"{index}| {author}| {title}"
+    index = str(i).zfill(2)
+    author = "{:<30}".format(titles[i]["Author"][0:30])
+    title = "{:<70}".format(titles[i]["Title"][0:70])
+    out = f"{index} | {author} | {title}"
     choices.append(out)
 
 questions = [
@@ -54,15 +55,18 @@ questions = [
 ]
 
 answer = prompt(questions)
-chosen_book = titles[int(answer["chosen_book"][0:1])]
+chosen_book = titles[int(answer["chosen_book"][0:2])]
 chosen_url = s.resolve_download_links(chosen_book)['GET']
 
-file_name = f"~/Downloads/books/{chosen_book['Title']}.{filters['Extension']}"
+file_name = f"downloaded/{chosen_book['Title']}.{filters['Extension']}"
 print(f"Downloading to: {file_name}")
 
-# r = requests.get(chosen_url)
-# with open(file_name, "wb") as f:
-#     f.write(r.content)
+chunk_size = 1024
+r = requests.get(chosen_url, stream=True)
+total_length = int(r.headers.get('content-length'))
 
-# some bugs with integers and stuff. 
-# the downloading is also incredibly slow
+with open(file_name, 'wb') as out:
+    for data in tqdm(iterable=r.iter_content(chunk_size=chunk_size), total=total_length/chunk_size, unit='KB'):
+        out.write(data)
+
+print("Download complete!")
